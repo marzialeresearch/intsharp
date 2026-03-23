@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cls_2010 (CLS with mapped normal, 2010) - intsharp</title>
+    <link href="https://fonts.cdnfonts.com/css/w95fa" rel="stylesheet">
+    <link rel="stylesheet" href="../style.css">
+    <script src="../katex-render.js"></script>
+</head>
+<body>
+    <div class="app">
+        <nav class="sidebar">
+            <div class="sidebar-header"><h1>intsharp</h1><span class="version">v1.0</span></div>
+            <div class="search-box"><input type="text" id="search" placeholder="Search..." autocomplete="off"></div>
+            <ul class="nav-list" id="nav-list">
+                <li><a href="../index.html" data-page="home">Home</a></li>
+                <li><a href="../install.html" data-page="install">Installation</a></li>
+                <li><a href="../guide.html" data-page="guide">Running Simulations</a></li>
+                <li><a href="../components.html" class="active" data-page="components">Components</a></li>
+                <li><a href="../unit-tests.html" data-page="unit-tests">Unit Tests</a></li>
+            </ul>
+            <div class="sidebar-footer"><a href="https://github.com/marzialetech/intsharp" target="_blank">GitHub</a></div>
+        </nav>
+        <main class="content">
+            <div class="window">
+                <div class="window-header"><span class="window-title">cls_2010 (CLS with mapped normal, 2010)</span></div>
+                <div class="window-body">
+                    <p><a href="../components.html">&larr; Components</a></p>
+                    <div class="file-path">intsharp/sharpening.py</div>
+                    <h2>CLS with mapped normal (2010)</h2>
+                    <p><strong>Supports:</strong> 1D and 2D (selected automatically based on domain)</p>
+                    <p>RHS for \( \alpha \) (non-conservative form):</p>
+                    <div class="math-block">\[ \text{RHS} = \mathbf{n} \cdot \nabla\bigl[\epsilon|\nabla\alpha| - \alpha(1-\alpha)\bigr] \]</div>
+                    <p>Normal from a mapped field: \( \phi(\alpha) = \alpha^a / (\alpha^a + (1-\alpha)^a) \), \( \mathbf{n} = \nabla\phi/|\nabla\phi| \).</p>
+                    <p>Update:</p>
+                    <div class="math-block">\[ \alpha^{n+1} = \alpha^n + \Delta t \cdot \Gamma \cdot \text{RHS} \]</div>
+                    <p><strong>Parameters:</strong></p>
+                    <ul>
+                        <li><code>eps_target</code>: Target interface thickness \( \epsilon \)</li>
+                        <li><code>strength</code>: Sharpening strength \( \Gamma \)</li>
+                        <li><code>mapping_alpha</code>: Mapping exponent \( a \) (default 2); set under <code>sharpening.method_params</code> in the YAML config</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="../search.js"></script>
+</body>
+</html>

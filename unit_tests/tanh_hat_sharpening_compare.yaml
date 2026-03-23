@@ -1,0 +1,185 @@
+# 1D comparison of ALL interface sharpening methods over 10 revolutions.
+# Each field uses the same tanh-hat IC but a different sharpening method.
+# Per-field sharpening_method selects the RHS term; global sharpening
+# section provides shared parameters (eps_target, strength, method_params).
+
+domain:
+  x_min: -0.5
+  x_max: 0.5
+  n_points: 100   # dx = 0.01
+
+time:
+  dt: 0.01         # CFL = 0.5
+  n_steps: 2000   # 10 revolutions = 20 s
+
+velocity:
+  type: constant
+  value: [0.5]
+
+fields:
+  - name: alpha_no_sharp
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: false
+
+  - name: alpha_pm
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: pm
+
+  - name: alpha_cl
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: cl
+
+  - name: alpha_olsson_kreiss
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: olsson_kreiss
+
+  - name: alpha_acls
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: acls
+
+  - name: alpha_cls_2010
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: cls_2010
+
+  - name: alpha_lcls_2012
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: lcls_2012
+
+  - name: alpha_lcls_2014
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: lcls_2014
+
+  - name: alpha_cls_2015
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: cls_2015
+
+  - name: alpha_cls_2017
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: cls_2017
+
+  - name: alpha_scls
+    initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
+    boundary:
+      type: periodic
+    sharpening: true
+    sharpening_method: scls
+
+solver:
+  type: upwind
+
+sharpening:
+  enabled: false
+  method: pm
+  eps_target: 0.02
+  strength: 1.0
+  method_params:
+    mapping_alpha: 2
+    mapping_gamma: 2
+    scls_alpha: 0.001
+    scls_beta: 1000
+
+output:
+  monitors:
+    - type: console
+
+    # Overlay comparison of all methods
+    - type: gif
+      every_n_steps: 20
+      compare_fields:
+        - field: alpha_no_sharp
+          color: black
+          linestyle: "-"
+        - field: alpha_pm
+          color: red
+          linestyle: "-"
+        - field: alpha_cl
+          color: blue
+          linestyle: "-"
+        - field: alpha_olsson_kreiss
+          color: green
+          linestyle: "--"
+        - field: alpha_acls
+          color: orange
+          linestyle: "--"
+        - field: alpha_cls_2010
+          color: purple
+          linestyle: "--"
+        - field: alpha_lcls_2012
+          color: cyan
+          linestyle: ":"
+        - field: alpha_lcls_2014
+          color: magenta
+          linestyle: ":"
+        - field: alpha_cls_2015
+          color: brown
+          linestyle: ":"
+        - field: alpha_cls_2017
+          color: olive
+          linestyle: "-."
+        - field: alpha_scls
+          color: teal
+          linestyle: "-."
+
+    # Individual gifs per method
+    - type: gif
+      every_n_steps: 20
+      field: alpha_no_sharp
+    - type: gif
+      every_n_steps: 20
+      field: alpha_pm
+    - type: gif
+      every_n_steps: 20
+      field: alpha_cl
+    - type: gif
+      every_n_steps: 20
+      field: alpha_olsson_kreiss
+    - type: gif
+      every_n_steps: 20
+      field: alpha_acls
+    - type: gif
+      every_n_steps: 20
+      field: alpha_cls_2010
+    - type: gif
+      every_n_steps: 20
+      field: alpha_lcls_2012
+    - type: gif
+      every_n_steps: 20
+      field: alpha_lcls_2014
+    - type: gif
+      every_n_steps: 20
+      field: alpha_cls_2015
+    - type: gif
+      every_n_steps: 20
+      field: alpha_cls_2017
+    - type: gif
+      every_n_steps: 20
+      field: alpha_scls

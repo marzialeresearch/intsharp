@@ -397,11 +397,14 @@ class Field:
         Boundary condition for this field.
     sharpening_enabled : bool or None
         Per-field sharpening override. None means use global setting.
+    sharpening_method : str or None
+        Per-field sharpening method override. None means use global setting.
     """
     name: str
     values: NDArray[np.float64]
     bc: BoundaryCondition
     sharpening_enabled: bool | None = None
+    sharpening_method: str | None = None
 
     def copy(self) -> "Field":
         """Return a copy of this field."""
@@ -410,6 +413,7 @@ class Field:
             values=self.values.copy(),
             bc=self.bc,
             sharpening_enabled=self.sharpening_enabled,
+            sharpening_method=self.sharpening_method,
         )
 
 
@@ -458,6 +462,7 @@ def create_field(
         values=values,
         bc=bc,
         sharpening_enabled=config.sharpening,
+        sharpening_method=config.sharpening_method,
     )
 
 

@@ -56,7 +56,7 @@
                     <p class="component-note">The correct 1D/2D implementation is selected automatically based on your domain.</p>
                     <ul>
                         <li><a href="component/upwind.html">upwind</a> — First-order upwind advection</li>
-                        <li><a href="component/euler_compressible.html">compressible Euler</a> — 1D FV (single-phase + 5-eq two-phase) and 1D DG (single-phase P1/P2/P3), stiffened-gas EOS, AUSM+UP/HLLC/HLLE flux options, analytical convergence mode</li>
+                        <li><a href="component/euler_compressible.html">compressible Euler</a> — 1D FV (single-phase + 5-eq two-phase), 1D DG (single-phase P1/P2/P3), and 2D FV two-phase RTI with optional gravity source; stiffened-gas EOS, AUSM+UP/HLLC/HLLE flux options, analytical convergence mode</li>
                     </ul>
 
                     <h2 id="time-integrators">Time Integrators</h2>
@@ -67,10 +67,18 @@
                     </ul>
 
                     <h2 id="interface-sharpening">Interface Sharpening</h2>
-                    <p class="component-note">The correct 1D/2D implementation is selected automatically based on your domain.</p>
+                    <p class="component-note">The correct 1D/2D implementation is selected automatically based on your domain. Per-field method selection is supported via <code>sharpening_method</code> in the field config.</p>
                     <ul>
                         <li><a href="component/pm.html">pm</a> — Parameswaran-Mandal</li>
-                        <li><a href="component/cl.html">cl</a> — Chiu-Lin</li>
+                        <li><a href="component/cl.html">cl</a> — Chiu-Lin (isotropic diffusion)</li>
+                        <li><a href="component/olsson_kreiss.html">olsson_kreiss</a> — Olsson-Kreiss CLS (2007, anisotropic diffusion)</li>
+                        <li><a href="component/acls.html">acls</a> — Accurate CLS (Desjardins et al. 2008, algebraic phi_inv normal)</li>
+                        <li><a href="component/cls_2010.html">cls_2010</a> — CLS with mapped normal (2010)</li>
+                        <li><a href="component/lcls_2012.html">lcls_2012</a> — Localized CLS (2012)</li>
+                        <li><a href="component/lcls_2014.html">lcls_2014</a> — Localized CLS with variable pseudo-time (2014)</li>
+                        <li><a href="component/cls_2015.html">cls_2015</a> — CLS with mapping function (2015)</li>
+                        <li><a href="component/cls_2017.html">cls_2017</a> — CLS with inverse transform (2017)</li>
+                        <li><a href="component/scls.html">scls</a> — Self-Correcting Level Set (Chiodi-Desjardins 2018)</li>
                     </ul>
 
                     <h2 id="boundary-conditions">Boundary Conditions</h2>

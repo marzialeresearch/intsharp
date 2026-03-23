@@ -155,8 +155,9 @@ velocity: [0.5, 0.0]   # 2D: (u, v) advection velocity</code></pre>
     initial_condition: "0.5 * (tanh((0.1 + x) / 0.02) + tanh((0.1 - x) / 0.02))"
     boundary:
       type: periodic   # or neumann, dirichlet
-    sharpening: true   # optional per-field override</code></pre>
-                    <p><strong>Per-field sharpening:</strong> Each field can override the global sharpening setting by adding <code>sharpening: true</code> or <code>sharpening: false</code>. This allows comparing sharpened vs non-sharpened fields in the same simulation.</p>
+    sharpening: true           # optional per-field override
+    sharpening_method: pm      # optional per-field method override</code></pre>
+                    <p><strong>Per-field sharpening:</strong> Each field can override the global sharpening on/off via <code>sharpening: true/false</code>, and optionally select a different sharpening method via <code>sharpening_method</code>. This allows comparing multiple sharpening algorithms in the same simulation.</p>
 
                     <h4>Expression-based Initial Conditions</h4>
                     <p>Initial conditions can be Python expressions evaluated with:</p>
@@ -227,9 +228,23 @@ solver:
                     <h3 id="sharpening">Sharpening (Optional)</h3>
                     <pre><code>sharpening:
   enabled: true
-  method: cl       # cl (Chiu-Lin) or pm (Parameswaran-Mandal)
+  method: cl       # cl, pm, olsson_kreiss, acls, cls_2010,
+                   # lcls_2012, lcls_2014, cls_2015, cls_2017, scls
   eps_target: 0.01 # Target interface thickness
-  strength: 1.0    # Sharpening strength (Gamma)</code></pre>
+  strength: 1.0    # Sharpening strength (Gamma)
+  method_params:   # Optional method-specific parameters
+    mapping_alpha: 2   # for cls_2010
+    mapping_gamma: 2   # for cls_2015
+    scls_alpha: 0.001  # for scls
+    scls_beta: 1000    # for scls</code></pre>
+                    <p><strong>Per-field method override:</strong> Each field can specify its own sharpening method via <code>sharpening_method</code>. This enables comparing multiple methods in a single simulation:</p>
+                    <pre><code>fields:
+  - name: alpha_cl
+    sharpening: true
+    sharpening_method: cl
+  - name: alpha_pm
+    sharpening: true
+    sharpening_method: pm</code></pre>
 
                     <h3>Output Monitors</h3>
                     <p>When you use <code>run.py</code>, output is written to the timestamped run folder (the <code>output.directory</code> in the YAML is overridden). You can omit <code>output.directory</code> from your YAML.</p>

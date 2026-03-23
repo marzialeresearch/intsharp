@@ -150,6 +150,10 @@ class FieldConfig(BaseModel):
         None,
         description="Enable sharpening for this field (overrides global setting if specified)"
     )
+    sharpening_method: Optional[str] = Field(
+        None,
+        description="Per-field sharpening method override (e.g., 'pm', 'cl', 'olsson_kreiss'). Falls back to global sharpening.method if not set."
+    )
 
     @model_validator(mode="after")
     def validate_ic_source(self) -> "FieldConfig":
@@ -182,11 +186,20 @@ class TimeStepperConfig(BaseModel):
 class SharpeningConfig(BaseModel):
     """Interface sharpening configuration (optional)."""
     enabled: bool = Field(False, description="Enable sharpening")
-    method: Literal["pm", "pm_cal", "cl"] = Field("cl", description="Sharpening method")
+    method: Literal[
+        "pm", "pm_cal", "cl",
+        "olsson_kreiss", "acls", "cls_2010",
+        "lcls_2012", "lcls_2014",
+        "cls_2015", "cls_2017", "scls",
+    ] = Field("cl", description="Sharpening method")
     eps_target: float = Field(
         ..., gt=0, description="Target interface thickness"
     )
     strength: float = Field(1.0, gt=0, description="Sharpening strength (Gamma)")
+    method_params: Optional[dict[str, Any]] = Field(
+        None,
+        description="Method-specific parameters (e.g., mapping_alpha, mapping_gamma, scls_alpha, scls_beta)"
+    )
 
 
 class SurfaceTensionConfig(BaseModel):
@@ -245,7 +258,7 @@ class RiemannStateConfig(BaseModel):
 
 class EulerInitialConditionsConfig(BaseModel):
     """Initial conditions for Euler mode."""
-    type: Literal["riemann", "uniform"] = Field(..., description="IC type")
+    type: Literal["riemann", "uniform", "rti"] = Field(..., description="IC type")
     # Riemann problem (shock tube)
     x_discontinuity: Optional[float] = Field(
         None, description="Location of discontinuity (for riemann type)"
@@ -256,6 +269,38 @@ class EulerInitialConditionsConfig(BaseModel):
     rho: Optional[float] = Field(None, gt=0, description="Uniform density (for uniform type)")
     u: Optional[float] = Field(None, description="Uniform velocity (for uniform type)")
     p: Optional[float] = Field(None, gt=0, description="Uniform pressure (for uniform type)")
+    # 2D RTI setup (two-phase 5eq)
+    interface_y0: Optional[float] = Field(
+        None, description="Base y-location of perturbed interface (for rti type)"
+    )
+    alpha1_top: float = Field(
+        0.0, ge=0, le=1, description="Top-region volume fraction of phase 1 (for rti type)"
+    )
+    alpha1_bottom: float = Field(
+        1.0, ge=0, le=1, description="Bottom-region volume fraction of phase 1 (for rti type)"
+    )
+    perturbation_amplitude: float = Field(
+        0.0, ge=0, description="Sinusoidal interface perturbation amplitude (for rti type)"
+    )
+    perturbation_mode_x: int = Field(
+        1, ge=1, description="Interface perturbation mode number in x (for rti type)"
+    )
+    interface_thickness: float = Field(
+        0.0, ge=0, description="Optional tanh interface thickness (for rti type)"
+    )
+    p0: float = Field(1.0e5, gt=0, description="Reference pressure at interface (for rti type)")
+    u0: float = Field(0.0, description="Initial x-velocity (for rti type)")
+    v0: float = Field(0.0, description="Initial y-velocity (for rti type)")
+    v_perturbation_amplitude: float = Field(
+        0.0,
+        description="Optional additive y-velocity perturbation amplitude; interpreted as v = v0 + amp*cos(2*pi*mode*x/Lx) unless scaled by sound speed",
+    )
+    v_perturbation_mode_x: int = Field(
+        1, ge=1, description="Mode number for optional y-velocity perturbation in x"
+    )
+    v_perturbation_scale_with_sound_speed: bool = Field(
+        False, description="If true, scales perturbation by local sound speed c"
+    )
 
     @model_validator(mode="after")
     def validate_ic_params(self) -> "EulerInitialConditionsConfig":
@@ -268,7 +313,17 @@ class EulerInitialConditionsConfig(BaseModel):
         elif self.type == "uniform":
             if self.rho is None or self.u is None or self.p is None:
                 raise ValueError("Uniform IC requires 'rho', 'u', and 'p'")
+        elif self.type == "rti":
+            if self.interface_y0 is None:
+                raise ValueError("RTI IC requires 'interface_y0'")
         return self
+
+
+class EulerGravityConfig(BaseModel):
+    """Optional gravity source for Euler mode."""
+    enabled: bool = Field(False, description="Enable constant gravity source")
+    gx: float = Field(0.0, description="Constant gravity acceleration in x")
+    gy: float = Field(0.0, description="Constant gravity acceleration in y")
 
 
 class PhysicsConfig(BaseModel):
@@ -295,6 +350,16 @@ class PhysicsConfig(BaseModel):
     # Euler boundary conditions
     euler_bc: Literal["transmissive", "reflective", "periodic"] = Field(
         "transmissive", description="Boundary condition for Euler mode"
+    )
+    euler_bc_x: Literal["transmissive", "reflective", "periodic"] = Field(
+        "periodic", description="Boundary condition in x for 2D Euler mode"
+    )
+    euler_bc_y: Literal["transmissive", "reflective", "periodic"] = Field(
+        "reflective", description="Boundary condition in y for 2D Euler mode"
+    )
+    gravity: EulerGravityConfig = Field(
+        default_factory=EulerGravityConfig,
+        description="Optional constant gravity source for Euler mode"
     )
     # Spatial reconstruction
     use_muscl: bool = Field(
@@ -352,6 +417,10 @@ class PhysicsConfig(BaseModel):
                 raise ValueError(
                     "DG Euler is currently implemented for single-phase mode only."
                 )
+            if self.euler_initial_conditions.type == "rti" and not self.is_two_phase:
+                raise ValueError("RTI IC currently requires two-phase Euler configuration.")
+            if self.euler_initial_conditions.type == "rti" and self.two_phase_model != "5eq":
+                raise ValueError("RTI IC currently requires two_phase_model: '5eq'.")
         return self
 
 
@@ -443,6 +512,13 @@ class MonitorConfig(BaseModel):
     show_annotations: Optional[bool] = Field(
         None, description="Show plot annotations: x/y ticks, tick labels, axis titles, plot title (default True)"
     )
+    # Fixed color scale bounds for 2D pcolormesh gif/mp4
+    vmin: Optional[float] = Field(
+        None, description="Lower color bound for 2D pcolormesh (gif/mp4 single-field mode)"
+    )
+    vmax: Optional[float] = Field(
+        None, description="Upper color bound for 2D pcolormesh (gif/mp4 single-field mode)"
+    )
     # Quiver overlay (gif/mp4 2D pcolormesh): overlay vector field on top
     quiver_overlay_x: Optional[str] = Field(
         None, description="Field name for quiver x-component (e.g. csf_x). Requires quiver_overlay_y."
@@ -484,6 +560,12 @@ class MonitorConfig(BaseModel):
                 raise ValueError(f"{self.type} monitor: specify either 'field' or 'compare_fields', not both")
             if not has_field and not has_compare:
                 raise ValueError(f"{self.type} monitor: requires 'field' or 'compare_fields'")
+        return self
+
+    @model_validator(mode="after")
+    def validate_color_bounds(self) -> "MonitorConfig":
+        if self.vmin is not None and self.vmax is not None and self.vmin >= self.vmax:
+            raise ValueError("monitor.vmin must be < monitor.vmax")
         return self
 
 
@@ -582,12 +664,15 @@ class SimulationConfig(BaseModel):
                 )
         elif mode == "euler":
             # Euler mode: physics config is already validated
-            # Euler mode is currently 1D only
-            if self.domain.ndim != 1:
-                raise ValueError(
-                    "Euler mode currently only supports 1D domains. "
-                    "2D support coming soon."
-                )
+            if self.domain.ndim == 2:
+                if self.physics is None:
+                    raise ValueError("Euler mode requires 'physics' configuration")
+                if self.physics.euler_spatial_discretization != "fv":
+                    raise ValueError("2D Euler mode currently supports FV only.")
+                if not self.physics.is_two_phase or self.physics.two_phase_model != "5eq":
+                    raise ValueError("2D Euler mode currently supports only two-phase 5eq model.")
+                if self.physics.euler_initial_conditions is None or self.physics.euler_initial_conditions.type != "rti":
+                    raise ValueError("2D Euler mode currently supports only RTI initial conditions.")
             if self.convergence and self.convergence.enabled and self.domain.ndim != 1:
                 raise ValueError("convergence mode currently supports only 1D")
         return self

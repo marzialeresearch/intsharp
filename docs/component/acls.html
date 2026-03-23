@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>acls (Accurate CLS, Desjardins et al. 2008) - intsharp</title>
+    <link href="https://fonts.cdnfonts.com/css/w95fa" rel="stylesheet">
+    <link rel="stylesheet" href="../style.css">
+    <script src="../katex-render.js"></script>
+</head>
+<body>
+    <div class="app">
+        <nav class="sidebar">
+            <div class="sidebar-header"><h1>intsharp</h1><span class="version">v1.0</span></div>
+            <div class="search-box"><input type="text" id="search" placeholder="Search..." autocomplete="off"></div>
+            <ul class="nav-list" id="nav-list">
+                <li><a href="../index.html" data-page="home">Home</a></li>
+                <li><a href="../install.html" data-page="install">Installation</a></li>
+                <li><a href="../guide.html" data-page="guide">Running Simulations</a></li>
+                <li><a href="../components.html" class="active" data-page="components">Components</a></li>
+                <li><a href="../unit-tests.html" data-page="unit-tests">Unit Tests</a></li>
+            </ul>
+            <div class="sidebar-footer"><a href="https://github.com/marzialetech/intsharp" target="_blank">GitHub</a></div>
+        </nav>
+        <main class="content">
+            <div class="window">
+                <div class="window-header"><span class="window-title">acls (Accurate CLS, Desjardins et al. 2008)</span></div>
+                <div class="window-body">
+                    <p><a href="../components.html">&larr; Components</a></p>
+                    <div class="file-path">intsharp/sharpening.py</div>
+                    <h2>Accurate CLS sharpening</h2>
+                    <p><strong>Supports:</strong> 1D and 2D (selected automatically based on domain)</p>
+                    <p>Same flux structure as Olsson-Kreiss, with the normal obtained from an algebraic inversion field:</p>
+                    <div class="math-block">\[ \text{RHS} = \nabla \cdot \bigl[\epsilon (\nabla\alpha \cdot \mathbf{n})\mathbf{n} - \alpha(1-\alpha)\mathbf{n}\bigr] \]</div>
+                    <p>with \( \mathbf{n} = \nabla\phi_{\mathrm{inv}}/|\nabla\phi_{\mathrm{inv}}| \) and \( \phi_{\mathrm{inv}} = \epsilon \ln(\alpha/(1-\alpha)) \).</p>
+                    <p>Update:</p>
+                    <div class="math-block">\[ \alpha^{n+1} = \alpha^n + \Delta t \cdot \Gamma \cdot \text{RHS} \]</div>
+                    <p><strong>Parameters:</strong></p>
+                    <ul>
+                        <li><code>eps_target</code>: Target interface thickness \( \epsilon \)</li>
+                        <li><code>strength</code>: Sharpening strength \( \Gamma \)</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="../search.js"></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>cls_2017 (CLS with inverse transform, 2017) - intsharp</title>
+    <link href="https://fonts.cdnfonts.com/css/w95fa" rel="stylesheet">
+    <link rel="stylesheet" href="../style.css">
+    <script src="../katex-render.js"></script>
+</head>
+<body>
+    <div class="app">
+        <nav class="sidebar">
+            <div class="sidebar-header"><h1>intsharp</h1><span class="version">v1.0</span></div>
+            <div class="search-box"><input type="text" id="search" placeholder="Search..." autocomplete="off"></div>
+            <ul class="nav-list" id="nav-list">
+                <li><a href="../index.html" data-page="home">Home</a></li>
+                <li><a href="../install.html" data-page="install">Installation</a></li>
+                <li><a href="../guide.html" data-page="guide">Running Simulations</a></li>
+                <li><a href="../components.html" class="active" data-page="components">Components</a></li>
+                <li><a href="../unit-tests.html" data-page="unit-tests">Unit Tests</a></li>
+            </ul>
+            <div class="sidebar-footer"><a href="https://github.com/marzialetech/intsharp" target="_blank">GitHub</a></div>
+        </nav>
+        <main class="content">
+            <div class="window">
+                <div class="window-header"><span class="window-title">cls_2017 (CLS with inverse transform, 2017)</span></div>
+                <div class="window-body">
+                    <p><a href="../components.html">&larr; Components</a></p>
+                    <div class="file-path">intsharp/sharpening.py</div>
+                    <h2>CLS with inverse transform (2017)</h2>
+                    <p><strong>Supports:</strong> 1D and 2D (selected automatically based on domain)</p>
+                    <p>RHS for the volume fraction \( \alpha \):</p>
+                    <div class="math-block">\[ \nabla\cdot\left[\frac{1}{4\cosh^2\!\big(\phi_{\mathrm{inv}}/(2\epsilon)\big)}\big(|\nabla\phi_{\mathrm{inv}}\cdot\mathbf{n}| - 1\big)\mathbf{n}\right] \]</div>
+                    <p>\( \phi_{\mathrm{inv}} = \epsilon\ln(\alpha/(1-\alpha)) \), \( \mathbf{n} = \nabla\phi_{\mathrm{inv}}/|\nabla\phi_{\mathrm{inv}}| \)</p>
+                    <p><strong>Parameters:</strong></p>
+                    <ul>
+                        <li><code>eps_target</code>: Target interface thickness \( \epsilon \)</li>
+                        <li><code>strength</code>: Sharpening strength \( \Gamma \)</li>
+                    </ul>
+                </div>
+            </div>
+        </main>
+    </div>
+    <script src="../search.js"></script>
+</body>
+</html>

@@ -46,6 +46,12 @@ from .solvers.euler_5eq_1d import (
     create_initial_state_riemann_5eq_1d,
     check_cfl_5eq_1d,
 )
+from .solvers.euler_5eq_2d import (
+    FiveEqState2D,
+    create_initial_state_rti_5eq_2d,
+    euler_step_5eq_2d,
+    check_cfl_5eq_2d,
+)
 from .solvers.euler_dg_1d import (
     DGEulerState1D,
     create_initial_state_riemann_dg_1d,
@@ -118,6 +124,8 @@ def create_monitors(
             kwargs["background_color"] = mon_cfg.background_color
             kwargs["show_colorbar"] = mon_cfg.show_colorbar
             kwargs["show_annotations"] = mon_cfg.show_annotations
+            kwargs["vmin"] = mon_cfg.vmin
+            kwargs["vmax"] = mon_cfg.vmax
             kwargs["output_format"] = mon_cfg.type  # "gif" or "mp4"
             kwargs["quiver_overlay_x"] = mon_cfg.quiver_overlay_x
             kwargs["quiver_overlay_y"] = mon_cfg.quiver_overlay_y
@@ -181,30 +189,33 @@ def run_advection_simulation(
             # Fall back to the specified solver if no 2D version exists
             solver_fn = get_solver(config.solver.type)
 
-    # Get sharpening method if needed
-    # Sharpening is needed if: global enabled OR any field has per-field sharpening=True
-    sharpening_fn = None
+    # Check if sharpening is needed at all (global enabled OR any per-field override)
     needs_sharpening = False
     if config.sharpening:
         if config.sharpening.enabled:
             needs_sharpening = True
         else:
-            # Check if any field has per-field sharpening enabled
             for field_cfg in config.fields:
                 if field_cfg.sharpening is True:
                     needs_sharpening = True
                     break
 
-    if needs_sharpening and config.sharpening:
+    # Cache for resolved sharpening functions (method_name -> callable)
+    _sharpening_fn_cache: dict[str, object] = {}
+
+    def _resolve_sharpening_fn(method_name: str):
+        """Resolve sharpening function by name, with 2D suffix fallback."""
+        if method_name in _sharpening_fn_cache:
+            return _sharpening_fn_cache[method_name]
         if ndim == 1:
-            sharpening_fn = get_sharpening(config.sharpening.method)
+            fn = get_sharpening(method_name)
         else:
-            # For 2D, use the 2D version of sharpening
-            sharpening_method_2d = config.sharpening.method + "_2d"
             try:
-                sharpening_fn = get_sharpening(sharpening_method_2d)
+                fn = get_sharpening(method_name + "_2d")
             except KeyError:
-                sharpening_fn = get_sharpening(config.sharpening.method)
+                fn = get_sharpening(method_name)
+        _sharpening_fn_cache[method_name] = fn
+        return fn
 
     # Create output directory
     output_dir = Path(config.output.directory)
@@ -316,33 +327,32 @@ def run_advection_simulation(
             field.values = new_values
 
         # Sharpening post-step (only primary fields)
-        # Per-field sharpening: field.sharpening_enabled can override global setting
-        if config.sharpening is not None:
+        if config.sharpening is not None and needs_sharpening:
+            method_params = config.sharpening.method_params or {}
             for name in primary_field_names:
                 field = fields[name]
-                # Determine if sharpening should be applied to this field
                 if field.sharpening_enabled is True:
-                    # Per-field override: force sharpening on
-                    apply_sharpening = True
+                    do_sharp = True
                 elif field.sharpening_enabled is False:
-                    # Per-field override: force sharpening off
-                    apply_sharpening = False
+                    do_sharp = False
                 else:
-                    # Use global setting
-                    apply_sharpening = config.sharpening.enabled and sharpening_fn is not None
+                    do_sharp = config.sharpening.enabled
 
-                if apply_sharpening and sharpening_fn is not None:
+                if do_sharp:
+                    method_name = field.sharpening_method or config.sharpening.method
+                    sharp_fn = _resolve_sharpening_fn(method_name)
                     if ndim == 1:
-                        field.values = sharpening_fn(
+                        field.values = sharp_fn(
                             field.values,
                             dx,
                             dt,
                             config.sharpening.eps_target,
                             config.sharpening.strength,
                             field.bc,
+                            **method_params,
                         )
                     else:
-                        field.values = sharpening_fn(
+                        field.values = sharp_fn(
                             field.values,
                             dx,
                             dy,
@@ -350,6 +360,7 @@ def run_advection_simulation(
                             config.sharpening.eps_target,
                             config.sharpening.strength,
                             field.bc,
+                            **method_params,
                         )
 
         # Surface tension diagnostics (2D only)
@@ -411,22 +422,101 @@ def run_euler_simulation(
 
     # Create domain
     domain = create_domain(config.domain)
-    
-    # Currently only 1D
-    if domain.ndim != 1:
-        raise ValueError("Euler mode currently only supports 1D")
 
     # Extract physics config
     physics = config.physics
     euler_ic = physics.euler_initial_conditions
     euler_bc = physics.euler_bc
+    euler_bc_x = physics.euler_bc_x
+    euler_bc_y = physics.euler_bc_y
     flux_calculator = physics.flux_calculator
     euler_discretization = physics.euler_spatial_discretization
 
     # Determine if single-phase or two-phase
     is_two_phase = physics.is_two_phase
 
-    if is_two_phase:
+    if domain.ndim == 2:
+        if not is_two_phase or physics.two_phase_model != "5eq":
+            raise ValueError("2D Euler currently supports two-phase 5eq only")
+        if euler_ic.type != "rti":
+            raise ValueError("2D Euler currently supports RTI initial conditions only")
+        if physics.phase1.rho_ref is None or physics.phase2.rho_ref is None:
+            raise ValueError("2D RTI setup requires phase1.rho_ref and phase2.rho_ref")
+
+        gamma1 = physics.phase1.gamma
+        p_inf1 = physics.phase1.p_infinity
+        gamma2 = physics.phase2.gamma
+        p_inf2 = physics.phase2.p_infinity
+        use_muscl = physics.use_muscl
+        gravity = physics.gravity
+
+        state = create_initial_state_rti_5eq_2d(
+            X=domain.X,  # type: ignore[attr-defined]
+            Y=domain.Y,  # type: ignore[attr-defined]
+            rho1=physics.phase1.rho_ref,
+            rho2=physics.phase2.rho_ref,
+            gamma1=gamma1,
+            gamma2=gamma2,
+            p_inf1=p_inf1,
+            p_inf2=p_inf2,
+            interface_y0=euler_ic.interface_y0,
+            alpha1_top=euler_ic.alpha1_top,
+            alpha1_bottom=euler_ic.alpha1_bottom,
+            perturbation_amplitude=euler_ic.perturbation_amplitude,
+            perturbation_mode_x=euler_ic.perturbation_mode_x,
+            interface_thickness=euler_ic.interface_thickness,
+            p0=euler_ic.p0,
+            u0=euler_ic.u0,
+            v0=euler_ic.v0,
+            gravity_y=gravity.gy,
+            v_perturbation_amplitude=euler_ic.v_perturbation_amplitude,
+            v_perturbation_mode_x=euler_ic.v_perturbation_mode_x,
+            v_perturbation_scale_with_sound_speed=euler_ic.v_perturbation_scale_with_sound_speed,
+        )
+
+        dummy_bc = BoundaryCondition("neumann", gradient_left=0.0, gradient_right=0.0)
+
+        def state_to_fields(s: FiveEqState2D) -> dict[str, Field]:
+            p = s.p
+            rho = s.rho
+            u = s.u
+            v = s.v
+            gamma_eff = s.alpha1 * gamma1 + (1.0 - s.alpha1) * gamma2
+            p_inf_eff = s.alpha1 * p_inf1 + (1.0 - s.alpha1) * p_inf2
+            e = (p + gamma_eff * p_inf_eff) / ((gamma_eff - 1.0) * rho + 1e-30)
+            return {
+                "rho": Field("rho", rho.copy(), dummy_bc, None),
+                "u": Field("u", u.copy(), dummy_bc, None),
+                "v": Field("v", v.copy(), dummy_bc, None),
+                "p": Field("p", p.copy(), dummy_bc, None),
+                "E": Field("E", s.E.copy(), dummy_bc, None),
+                "e_int": Field("e_int", e.copy(), dummy_bc, None),
+                "alpha": Field("alpha", s.alpha1.copy(), dummy_bc, None),
+                "alpha1_rho1": Field("alpha1_rho1", s.alpha1_rho1.copy(), dummy_bc, None),
+                "alpha2_rho2": Field("alpha2_rho2", s.alpha2_rho2.copy(), dummy_bc, None),
+                "rho_u": Field("rho_u", s.rho_u.copy(), dummy_bc, None),
+                "rho_v": Field("rho_v", s.rho_v.copy(), dummy_bc, None),
+            }
+
+        def step_fn(s, dx, dy, dt):
+            return euler_step_5eq_2d(
+                s,
+                dx=dx,
+                dy=dy,
+                dt=dt,
+                bc_x=euler_bc_x,
+                bc_y=euler_bc_y,
+                use_muscl=use_muscl,
+                flux_calculator=flux_calculator,
+                gravity_x=gravity.gx,
+                gravity_y=gravity.gy,
+                gravity_enabled=gravity.enabled,
+            )
+
+        def cfl_fn(s, dx, dy, dt):
+            return check_cfl_5eq_2d(s, dx, dy, dt)
+
+    elif is_two_phase:
         # Two-phase mode
         gamma1 = physics.phase1.gamma
         p_inf1 = physics.phase1.p_infinity
@@ -661,9 +751,13 @@ def run_euler_simulation(
     dt = config.time.dt
     n_steps = config.time.n_steps
     dx = domain.dx
+    dy = getattr(domain, "dy", 0.0)
 
     # Check CFL at start
-    cfl_fn(state, dx, dt)
+    if domain.ndim == 1:
+        cfl_fn(state, dx, dt)
+    else:
+        cfl_fn(state, dx, dy, dt)
 
     # Initialize monitors
     fields = state_to_fields(state)
@@ -678,7 +772,10 @@ def run_euler_simulation(
     # Time loop
     for step in range(1, n_steps + 1):
         # Euler step
-        state = step_fn(state, dx, dt, euler_bc)
+        if domain.ndim == 1:
+            state = step_fn(state, dx, dt, euler_bc)
+        else:
+            state = step_fn(state, dx, dy, dt)
         t += dt
 
         # Convert to fields for monitors
